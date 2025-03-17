@@ -1,0 +1,55 @@
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: milvus
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - chart: milvus
+      repoURL: 'https://zilliztech.github.io/milvus-helm'
+      targetRevision: "4.1.11"
+      helm:
+        releaseName: milvus
+        valuesObject:
+          serviceName: milvus
+          cluster:
+            enabled: false
+          etcd:
+            enabled: false
+          pulsar:
+            enabled: false
+          minio:
+            enabled: false
+            tls:
+              enabled: false
+          standalone:
+            persistence:
+              enabled: true
+              persistentVolumeClaim:
+                size: 20Gi
+                storageClass: "standard"
+            extraEnv:
+              - name: LOG_LEVEL
+                value: error
+          extraConfigFiles:
+            user.yaml: |+
+              etcd:
+                use:
+                  embed: true
+                data:
+                  dir: /var/lib/milvus/etcd
+              common:
+                storageType: local
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: milvus
+  syncPolicy:
+    syncOptions:
+    - Validate=false
+    - CreateNamespace=true
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
