@@ -1,0 +1,35 @@
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argoworkflows
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: 'https://argoproj.github.io/argo-helm'
+      targetRevision: 0.41.11
+      chart: argo-workflows
+      helm:
+        releaseName: argo-workflows
+        valuesObject:
+          nameOverride: argo-workflows
+          serviceName: argo-workflows-server
+          server:
+            baseHref: /
+            authModes:
+              - "server"
+            servicePort: 2746
+            serviceType: ClusterIP
+
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: argoworkflows
+  syncPolicy:
+    syncOptions:
+    - Validate=false
+    - CreateNamespace=true
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
