@@ -1,0 +1,77 @@
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: postgresql
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - chart: postgresql
+      repoURL: 'registry-1.docker.io/bitnamicharts'
+      targetRevision: "15.5.20"
+      helm:
+        releaseName: postgresql
+        valuesObject:
+          global:
+            defaultStorageClass: standard
+            postgresql:
+              auth:
+                username: "nemo-user"
+                existingSecret: existing-postgres-auth-secret
+                secretKeys:
+                  adminPasswordKey: postgresql-admin-password
+                  userPasswordKey: postgresql-user-password
+                  replicationPasswordKey: postgresql-replocation-password
+          auth:
+            enablePostgresUser: true
+            username: "nemo-user"
+            existingSecret: "existing-postgres-auth-secret"
+            secretKeys:
+              adminPasswordKey: postgresql-admin-password
+              userPasswordKey: postgresql-user-password
+              replicationPasswordKey: postgresql-replocation-password
+          architecture: standalone
+          primary:
+            service:
+              ports:
+                postgresql: 5432  
+            initdb:
+              scripts:
+                create_db.sh: |
+                  #!/bin/bash
+                  PGPASSWORD=$POSTGRES_POSTGRES_PASSWORD psql -U postgres <<< "CREATE DATABASE \"gitea-database\""
+                  PGPASSWORD=$POSTGRES_POSTGRES_PASSWORD psql -U postgres <<< "CREATE DATABASE \"api-database\"" 
+                  PGPASSWORD=$POSTGRES_POSTGRES_PASSWORD psql -U postgres <<< "CREATE DATABASE \"finetuning\""
+                  PGPASSWORD=$POSTGRES_POSTGRES_PASSWORD psql -U postgres <<< "CREATE DATABASE \"gateway\""
+                  PGPASSWORD=$POSTGRES_POSTGRES_PASSWORD psql -U postgres <<< "CREATE DATABASE \"evaluation\""
+                  PGPASSWORD=$POSTGRES_POSTGRES_PASSWORD psql -U postgres <<< "GRANT ALL PRIVILEGES ON DATABASE \"gitea-database\" to \"nemo-user\""
+                  PGPASSWORD=$POSTGRES_POSTGRES_PASSWORD psql -U postgres <<< "GRANT ALL PRIVILEGES ON DATABASE \"api-database\" to \"nemo-user\""
+                  PGPASSWORD=$POSTGRES_POSTGRES_PASSWORD psql -U postgres <<< "GRANT ALL PRIVILEGES ON DATABASE \"postgres\" to \"nemo-user\""
+                  PGPASSWORD=$POSTGRES_POSTGRES_PASSWORD psql -U postgres <<< "GRANT ALL PRIVILEGES ON DATABASE \"finetuning\" to \"nemo-user\""
+                  PGPASSWORD=$POSTGRES_POSTGRES_PASSWORD psql -U postgres <<< "GRANT ALL PRIVILEGES ON DATABASE \"gateway\" to \"nemo-user\""
+                  PGPASSWORD=$POSTGRES_POSTGRES_PASSWORD psql -U postgres <<< "GRANT ALL PRIVILEGES ON DATABASE \"evaluation\" to \"nemo-user\""
+                  PGPASSWORD=$POSTGRES_POSTGRES_PASSWORD psql -U postgres <<< "ALTER DATABASE \"gitea-database\" OWNER TO \"nemo-user\""
+                  PGPASSWORD=$POSTGRES_POSTGRES_PASSWORD psql -U postgres <<< "ALTER DATABASE \"api-database\" OWNER TO \"nemo-user\""
+                  PGPASSWORD=$POSTGRES_POSTGRES_PASSWORD psql -U postgres <<< "ALTER DATABASE \"finetuning\" OWNER TO \"nemo-user\""
+                  PGPASSWORD=$POSTGRES_POSTGRES_PASSWORD psql -U postgres <<< "ALTER DATABASE \"postgres\" OWNER TO \"nemo-user\""
+                  PGPASSWORD=$POSTGRES_POSTGRES_PASSWORD psql -U postgres <<< "ALTER DATABASE \"gateway\" OWNER TO \"nemo-user\""
+                  PGPASSWORD=$POSTGRES_POSTGRES_PASSWORD psql -U postgres <<< "ALTER DATABASE \"evaluation\" OWNER TO \"nemo-user\""
+                  PGPASSWORD=$POSTGRES_POSTGRES_PASSWORD psql -U postgres <<< "GRANT ALL ON SCHEMA public to \"nemo-user\""
+
+    - repoURL: 'ssh://git@github.com/adarshvulli/llmops-nvidia.git'
+      path: secrets/postgres
+      targetRevision: main
+      directory:
+        recurse: true    
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: postgresql
+  syncPolicy:
+    syncOptions:
+    - Validate=false
+    - CreateNamespace=true
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
