@@ -1,0 +1,43 @@
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nemo-kubernetes-operator
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - chart: nemo-kubernetes-operator
+      repoURL: "docker-registry.registry.svc.cluster.local/nvidia/nemo-microservices/charts"
+      targetRevision: "0.1.41"
+      helm:
+        releaseName: nemo-kubernetes-operator
+        valuesObject:
+          imagePullSecrets:
+            - name: nvcrimagepullsecret
+          customizerControllerManager:
+            enabled: true
+            manager:
+              image:
+                repository: "192.168.49.2:30500/nvidia/nemo-microservices/nemo-kubernetes-operator"
+                tag: 25.01
+          dmsControllerManager:
+            enabled: false
+          compoundaiControllerManager:
+            enabled: false
+    - repoURL: 'ssh://git@github.com/adarshvulli/llmops-nvidia.git'
+      path: secrets/nvcr
+      targetRevision: main
+      directory:
+        recurse: true  
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: nemo-kubernetes-operator
+  syncPolicy:
+    syncOptions:
+    - Validate=false
+    - CreateNamespace=true
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
