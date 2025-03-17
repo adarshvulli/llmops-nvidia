@@ -1,0 +1,33 @@
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mlflow
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - chart: mlflow
+      repoURL: 'registry-1.docker.io/bitnamicharts'
+      targetRevision: "1.4.22"
+      helm:
+        releaseName: mlflow
+        valuesObject:
+          tracking:
+            service:
+              type: NodePort
+              nodePorts:
+                http: "30090"
+            auth:
+              enabled: false
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: mlflow
+  syncPolicy:
+    syncOptions:
+    - Validate=false
+    - CreateNamespace=true
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
